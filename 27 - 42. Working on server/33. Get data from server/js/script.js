@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     modalWindow.addEventListener('click', (event) => {
-        if (event.target === modalWindow) {
+        if (event.target === modalWindow || event.target.getAttribute('data-modal-close' == '')) {
             closeModalWindow();
         }
     });
@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Open modal window by timeout&by scroll down
 
-    const modalTimer = 15000;
+    const modalTimer = 50000;
     const modalTimeOut = setTimeout(() => {
         showModalWindow();
     }, modalTimer);
@@ -142,4 +142,128 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.addEventListener('scroll', showModalScroll);
+
+    // Creating cards, using classess
+
+    class MenuCard {
+        constructor(imageSrc, alt, title, description, price, parentSelector) {
+            this.imageSrc = imageSrc;
+            this.alt = alt;
+            this.title = title;
+            this.description = description;
+            this.price = price;
+            this.parentSelector = document.querySelector(parentSelector);
+        }
+        render() {
+            const element = document.createElement('div');
+            element.innerHTML = 
+            `
+                <div class="menu__item">
+                    <img data-menu-img src=${this.imageSrc} alt=${this.alt}>
+                    <h3 class="menu__item-subtitle">${this.title}</h3>
+                    <div class="menu__item-descr">${this.description}</div>
+                    <div class="menu__item-divider"></div>
+                    <div class="menu__item-price">
+                        <div class="menu__item-cost">Цена:</div>
+                        <div class="menu__item-total"><span class="span-price">${this.price}</span> грн/день</div>
+                    </div>
+                </div>
+            `;
+            this.parentSelector.append(element);
+        }
+    }
+
+    const getResourses = async (url) => {
+        const result = await fetch(url);
+        if (result.status != 200) {
+            throw new Error(`Произошла ошибка. Код ошибки: ${result.status}`);
+        }
+        return await result.json();
+    };
+
+    getResourses('http://localhost:3000/menu').then(data => {
+        data.forEach(({img, alt, title, descr, price}) => {
+            new MenuCard(img, alt, title, descr, price, '.menu .container').render();
+        });
+    });
+
+    
+
+    // Forms
+
+    const forms = document.querySelectorAll('form');
+    const messages = {
+        loading: './img/spinner/spinner.svg',
+        success: 'Спасибо! Скоро мы с вами свяжемся',
+        failure: 'Что-то пошло не так'
+    };
+
+    forms.forEach((item) => {
+        bindPostData(item);
+    });
+
+    const postData = async (url, data) => {
+        const result = await fetch(url, {
+            method: "POST",
+            headers: {
+                'Content-type': 'application/json'
+            },
+            body: data,
+        });
+        return await result.json();
+    };
+
+    function bindPostData(form) {
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const statusMessage = document.createElement('img');
+            statusMessage.src = messages.loading;
+            statusMessage.style.cssText = `
+                display: block;
+                margin: 0 auto;
+            `;
+            form.append(statusMessage);
+
+            
+            // request.setRequestHeader('Content-type', 'application/json');
+            const formData = new FormData(form);
+
+            const json = JSON.stringify(Object.fromEntries(formData.entries()));
+            postData('http://localhost:3000/requests', json)
+            .then(data => {
+                console.log(data);
+                showThanksModal(messages.success);
+                statusMessage.remove();
+            }).catch(() => {
+                showThanksModal(messages.failure);
+            }).finally(() => {
+                form.reset();
+            });
+        });
+    }
+
+    // Spinner
+
+    const showThanksModal = (message) => {
+        const prevModalDialog = document.querySelector('.modal__dialog');
+        prevModalDialog.classList.add('hide');
+        showModalWindow();
+
+        const thanksModal = document.createElement('div');
+        thanksModal.classList.add('modal__dialog');
+        thanksModal.innerHTML = `
+            <div class="modal__content">
+                <div data-modal-close class="modal__close">&times;</div>
+                <div class="modal__title">${message}</div>
+            </div>
+        `;
+        document.querySelector('.modal').append(thanksModal);
+        setTimeout(() => {
+            thanksModal.remove();
+            prevModalDialog.classList.add('show');
+            prevModalDialog.classList.remove('hide');
+            closeModalWindow();
+        }, 4000);
+    };
 });
